@@ -35,4 +35,6 @@ ENV/
 
 # Project specific
 /tmp/
-.lambda-functions/ 
+.lambda-functions/
+backend/target
+backend/target/*

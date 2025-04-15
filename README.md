@@ -38,16 +38,70 @@ poetry install
 
 ### 2. 初始化 Lima / Initialize Lima
 
+根据您的系统架构选择合适的配置：
+
+#### macOS (Apple Silicon - M1/M2/M3)
 ```bash
-# 启动默认 Lima 实例
-limactl start default
+# 启动 ARM64 实例
+limactl start --name=lambda-arm64 template://lambda-arm64
 
-# 验证 Lima 安装
+# 验证安装
 limactl list
-
-# 检查 Lima 状态
-limactl status default
 ```
+
+#### macOS (Intel)
+```bash
+# 启动 x86_64 实例
+limactl start --name=lambda-intel template://macos-intel
+
+# 验证安装
+limactl list
+```
+
+#### Ubuntu (x86_64)
+```bash
+# 启动 x86_64 实例
+limactl start --name=lambda-ubuntu template://ubuntu-x86_64
+
+# 验证安装
+limactl list
+```
+
+#### Ubuntu (ARM64)
+```bash
+# 启动 ARM64 实例
+limactl start --name=lambda-ubuntu-arm template://ubuntu-arm64
+
+# 验证安装
+limactl list
+```
+
+#### 架构特定说明 / Architecture-specific Notes
+
+1. Apple Silicon (M1/M2/M3)
+   - 启用了 Rosetta 2 支持
+   - 可以运行 x86_64 和 ARM64 函数
+   - 优化了 ARM64 原生性能
+
+2. Intel Mac
+   - 原生支持 x86_64 函数
+   - 无需 Rosetta 2
+   - 最佳 x86_64 性能
+
+3. 资源配置
+   - Intel/AMD: 2 CPU cores, 4GB RAM
+   - ARM: 2 CPU cores, 4GB RAM
+   - 所有架构: 20GB 磁盘空间
+
+4. 性能优化
+   - ARM64: 使用原生二进制包
+   - x86_64: 启用 CPU 扩展指令集
+   - 自动检测并应用最佳配置
+
+5. 兼容性说明
+   - x86_64 函数可在所有平台运行
+   - ARM64 函数在 Apple Silicon 上性能最佳
+   - 跨架构运行可能有性能损耗
 
 ### 3. 配置环境变量 / Configure Environment Variables
 

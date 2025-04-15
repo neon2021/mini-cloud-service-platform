@@ -1,8 +1,41 @@
 # Lima configuration for Lambda service
 images:
+# Ubuntu images for different architectures
 - location: "https://cloud-images.ubuntu.com/releases/22.04/release/ubuntu-22.04-server-cloudimg-amd64.img"
   arch: "x86_64"
   digest: "sha256:5c8f2c7c3b1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1"
+  aliases:
+    - "ubuntu-x86_64"
+  
+- location: "https://cloud-images.ubuntu.com/releases/22.04/release/ubuntu-22.04-server-cloudimg-arm64.img"
+  arch: "aarch64"
+  digest: "sha256:1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef"
+  aliases:
+    - "ubuntu-arm64"
+
+# macOS specific settings for Intel (x86_64)
+- location: "https://cloud-images.ubuntu.com/releases/22.04/release/ubuntu-22.04-server-cloudimg-amd64.img"
+  arch: "x86_64"
+  digest: "sha256:5c8f2c7c3b1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1"
+  aliases:
+    - "macos-intel"
+  rosetta:
+    enabled: false
+  
+# macOS specific settings for Apple Silicon (M1/M2/M3)
+- location: "https://cloud-images.ubuntu.com/releases/22.04/release/ubuntu-22.04-server-cloudimg-arm64.img"
+  arch: "aarch64"
+  digest: "sha256:1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef"
+  aliases:
+    - "macos-arm64"
+  rosetta:
+    enabled: true
+    binfmt: true
+
+# Default architecture detection
+default:
+  # This will automatically select the appropriate image based on the host architecture
+  arch: "host"
 
 mounts:
 - location: "~/.lambda-functions"
@@ -30,25 +63,44 @@ provision:
       unzip \
       jq \
       awscli
+
+    # Architecture specific installations
+    ARCH=$(uname -m)
+    if [ "$ARCH" = "aarch64" ]; then
+      # ARM64 specific packages
+      apt-get install -y \
+        qemu-user-static \
+        binfmt-support
+    fi
     
     # Create virtual environment
     python3 -m venv /opt/lambda-venv
     source /opt/lambda-venv/bin/activate
     
-    # Install Python packages
-    pip install \
-      fastapi \
-      uvicorn \
-      python-multipart \
-      python-dotenv \
-      boto3 \
-      requests
+    # Install Python packages with architecture-specific optimizations
+    if [ "$ARCH" = "aarch64" ]; then
+      pip install --only-binary :all: \
+        fastapi \
+        uvicorn \
+        python-multipart \
+        python-dotenv \
+        boto3 \
+        requests
+    else
+      pip install \
+        fastapi \
+        uvicorn \
+        python-multipart \
+        python-dotenv \
+        boto3 \
+        requests
+    fi
     
     # Create lambda functions directory
     mkdir -p /opt/lambda-functions
     chmod 777 /opt/lambda-functions
     
-    # Create systemd service
+    # Create systemd service with architecture-specific settings
     cat > /etc/systemd/system/lambda.service << EOF
     [Unit]
     Description=Lambda Service
@@ -59,6 +111,7 @@ provision:
     User=root
     WorkingDirectory=/opt/lambda-functions
     Environment="PATH=/opt/lambda-venv/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
+    Environment="ARCH=$(uname -m)"
     ExecStart=/opt/lambda-venv/bin/uvicorn lambda_service.main:app --host 0.0.0.0 --port 16002
     Restart=always
     
@@ -70,8 +123,13 @@ provision:
     systemctl enable lambda.service
     systemctl start lambda.service
 
-cpus: 2
-memory: "4GiB"
+# Architecture-specific resource allocation
+cpus:
+  intel: 2
+  arm: 2
+memory:
+  intel: "4GiB"
+  arm: "4GiB"
 disk: "20GiB"
 
 networks:

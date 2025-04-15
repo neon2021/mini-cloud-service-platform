@@ -141,8 +141,32 @@ curl "http://localhost:8000/instances"
 #### 部署函数 / Deploy Function
 
 ```bash
-curl -X POST "http://localhost:8001/functions/hello-world" \
-     -F "code=@lambda_function.py"
+# 使用 curl 部署函数
+curl -X POST "http://localhost:8001/functions" \
+     -F "name=hello-world" \
+     -F "runtime=python3.9" \
+     -F "handler=lambda_handler" \
+     -F "code=@lambda_function.py" \
+     -F "memory=128" \
+     -F "timeout=30"
+
+# 使用 Python 部署函数
+import requests
+
+url = "http://localhost:8001/functions"
+files = {
+    'code': ('lambda_function.py', open('lambda_function.py', 'rb'))
+}
+data = {
+    'name': 'hello-world',
+    'runtime': 'python3.9',
+    'handler': 'lambda_handler',
+    'memory': '128',
+    'timeout': '30'
+}
+
+response = requests.post(url, files=files, data=data)
+print(response.status_code)
 ```
 
 示例函数文件 `lambda_function.py`:
@@ -160,22 +184,332 @@ def lambda_handler(event, context):
 #### 调用函数 / Invoke Function
 
 ```bash
-curl -X POST "http://localhost:8001/2015-03-31/functions/hello-world/invocations" \
-     -H "Content-Type: application/json" \
-     -d '{"name": "World"}'
+# 使用 curl 调用函数
+curl -X POST "http://localhost:8001/functions/hello-world/invoke"
+
+# 使用 Python 调用函数
+import requests
+
+url = "http://localhost:8001/functions/hello-world/invoke"
+response = requests.post(url)
+print(response.json())
 ```
 
 #### 查看函数列表 / List Functions
 
 ```bash
+# 使用 curl 查看函数列表
 curl "http://localhost:8001/functions"
+
+# 使用 Python 查看函数列表
+import requests
+
+url = "http://localhost:8001/functions"
+response = requests.get(url)
+print(response.json())
 ```
 
 #### 删除函数 / Delete Function
 
 ```bash
+# 使用 curl 删除函数
 curl -X DELETE "http://localhost:8001/functions/hello-world"
+
+# 使用 Python 删除函数
+import requests
+
+url = "http://localhost:8001/functions/hello-world"
+response = requests.delete(url)
+print(response.status_code)
 ```
+
+#### 函数配置说明 / Function Configuration
+
+1. 函数名称 (name)
+   - 必填项
+   - 只能包含字母、数字、连字符和下划线
+   - 长度限制：3-64 个字符
+
+2. 运行时 (runtime)
+   - 必填项
+   - 支持的运行时：
+     - python3.9
+     - nodejs14.x
+     - java11
+
+3. 处理函数 (handler)
+   - 必填项
+   - 格式：`文件名.函数名`
+   - 示例：`lambda_function.lambda_handler`
+
+4. 内存限制 (memory)
+   - 可选，默认值：128MB
+   - 范围：128-1024MB
+   - 以 64MB 为增量
+
+5. 超时时间 (timeout)
+   - 可选，默认值：30秒
+   - 范围：1-300秒
+
+#### 函数执行环境 / Function Execution Environment
+
+1. 临时存储
+   - 每个函数执行时创建临时目录
+   - 执行完成后自动清理
+   - 最大可用空间：512MB
+
+2. 环境变量
+   - 支持自定义环境变量
+   - 通过配置文件设置
+   - 示例：
+     ```bash
+     LAMBDA_ENV_VAR1=value1
+     LAMBDA_ENV_VAR2=value2
+     ```
+
+3. 日志记录
+   - 自动记录函数执行日志
+   - 包含执行时间、内存使用、返回值等信息
+   - 日志文件位置：`~/.lambda-functions/logs/`
+
+#### 错误处理 / Error Handling
+
+1. 部署错误
+   - 函数名称已存在
+   - 运行时不支持
+   - 代码格式错误
+   - 内存配置无效
+
+2. 执行错误
+   - 函数超时
+   - 内存不足
+   - 运行时错误
+   - 权限错误
+
+3. 错误响应格式
+   ```json
+   {
+     "error": {
+       "code": "ErrorCode",
+       "message": "Error message",
+       "details": {
+         "field": "Additional error details"
+       }
+     }
+   }
+   ```
+
+#### 监控和日志 / Monitoring and Logging
+
+1. 函数执行日志
+   ```bash
+   # 查看函数执行日志
+   cat ~/.lambda-functions/logs/hello-world.log
+   ```
+
+2. 性能监控
+   - 执行时间
+   - 内存使用
+   - CPU 使用率
+   - 调用次数
+
+3. 资源使用统计
+   ```bash
+   # 查看资源使用统计
+   curl "http://localhost:8001/functions/hello-world/metrics"
+   ```
+
+#### 高级功能 / Advanced Features
+
+1. 函数版本控制
+   ```bash
+   # 部署新版本
+   curl -X POST "http://localhost:8001/functions/hello-world/versions" \
+        -F "code=@lambda_function.py" \
+        -F "description=New version with bug fixes"
+
+   # 查看版本列表
+   curl "http://localhost:8001/functions/hello-world/versions"
+
+   # 调用特定版本
+   curl -X POST "http://localhost:8001/functions/hello-world/versions/1/invoke"
+   ```
+
+2. 函数别名
+   ```bash
+   # 创建别名
+   curl -X POST "http://localhost:8001/functions/hello-world/aliases" \
+        -H "Content-Type: application/json" \
+        -d '{"name": "prod", "version": "1"}'
+
+   # 使用别名调用
+   curl -X POST "http://localhost:8001/functions/hello-world/aliases/prod/invoke"
+   ```
+
+3. 并发执行控制
+   ```bash
+   # 设置并发限制
+   curl -X PUT "http://localhost:8001/functions/hello-world/concurrency" \
+        -H "Content-Type: application/json" \
+        -d '{"limit": 10}'
+   ```
+
+#### 最佳实践 / Best Practices
+
+1. 函数代码优化
+   - 使用适当的内存配置
+   - 避免长时间运行的操作
+   - 实现错误重试机制
+   - 使用缓存减少重复计算
+
+2. 安全建议
+   - 使用最小权限原则
+   - 定期更新依赖包
+   - 避免硬编码敏感信息
+   - 使用环境变量存储配置
+
+3. 性能优化
+   - 预热函数减少冷启动
+   - 使用连接池管理数据库连接
+   - 实现适当的超时设置
+   - 监控资源使用情况
+
+#### 开发工具 / Development Tools
+
+1. 本地测试工具
+   ```bash
+   # 安装测试工具
+   pip install lambda-local
+
+   # 本地测试函数
+   lambda-local -f lambda_function.py -e event.json
+   ```
+
+2. 部署工具
+   ```bash
+   # 使用部署脚本
+   ./deploy.sh hello-world
+   ```
+
+3. 监控工具
+   ```bash
+   # 实时监控函数执行
+   watch -n 1 "curl http://localhost:8001/functions/hello-world/metrics"
+   ```
+
+#### 故障排除 / Troubleshooting
+
+1. 常见问题
+   - 函数部署失败
+     ```bash
+     # 检查部署日志
+     tail -f ~/.lambda-functions/logs/deploy.log
+     ```
+   - 执行超时
+     ```bash
+     # 检查执行日志
+     tail -f ~/.lambda-functions/logs/hello-world.log
+     ```
+   - 内存不足
+     ```bash
+     # 检查内存使用
+     curl "http://localhost:8001/functions/hello-world/metrics?type=memory"
+     ```
+
+2. 调试技巧
+   - 使用日志级别控制
+     ```bash
+     # 设置日志级别
+     curl -X PUT "http://localhost:8001/functions/hello-world/logging" \
+          -H "Content-Type: application/json" \
+          -d '{"level": "DEBUG"}'
+     ```
+   - 启用详细日志
+     ```bash
+     # 启用详细日志
+     curl -X PUT "http://localhost:8001/functions/hello-world/logging" \
+          -H "Content-Type: application/json" \
+          -d '{"verbose": true}'
+     ```
+
+#### 集成指南 / Integration Guide
+
+1. API Gateway 集成
+   ```bash
+   # 创建 API 网关
+   curl -X POST "http://localhost:8001/apis" \
+        -H "Content-Type: application/json" \
+        -d '{
+          "name": "hello-api",
+          "path": "/hello",
+          "function": "hello-world"
+        }'
+   ```
+
+2. 事件源集成
+   ```bash
+   # 配置定时触发器
+   curl -X POST "http://localhost:8001/functions/hello-world/triggers" \
+        -H "Content-Type: application/json" \
+        -d '{
+          "type": "schedule",
+          "schedule": "rate(5 minutes)"
+        }'
+   ```
+
+3. 存储服务集成
+   ```bash
+   # 配置存储访问
+   curl -X PUT "http://localhost:8001/functions/hello-world/storage" \
+        -H "Content-Type: application/json" \
+        -d '{
+          "type": "s3",
+          "bucket": "my-bucket",
+          "prefix": "data/"
+        }'
+   ```
+
+#### 安全指南 / Security Guide
+
+1. 访问控制
+   ```bash
+   # 设置访问策略
+   curl -X PUT "http://localhost:8001/functions/hello-world/policy" \
+        -H "Content-Type: application/json" \
+        -d '{
+          "version": "2012-10-17",
+          "statement": [
+            {
+              "effect": "Allow",
+              "principal": {"AWS": ["arn:aws:iam::123456789012:user/alice"]},
+              "action": ["lambda:InvokeFunction"]
+            }
+          ]
+        }'
+   ```
+
+2. 加密配置
+   ```bash
+   # 加密环境变量
+   curl -X PUT "http://localhost:8001/functions/hello-world/secrets" \
+        -H "Content-Type: application/json" \
+        -d '{
+          "DB_PASSWORD": "encrypted_value"
+        }'
+   ```
+
+3. 网络隔离
+   ```bash
+   # 配置 VPC
+   curl -X PUT "http://localhost:8001/functions/hello-world/network" \
+        -H "Content-Type: application/json" \
+        -d '{
+          "vpc": {
+            "subnets": ["subnet-12345678"],
+            "securityGroups": ["sg-12345678"]
+          }
+        }'
+   ```
 
 ## 常见问题 / FAQ
 

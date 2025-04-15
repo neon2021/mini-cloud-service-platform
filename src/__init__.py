@@ -1,0 +1,1 @@
+"""Mini cloud service platform""" 

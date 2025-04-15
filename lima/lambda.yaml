@@ -1,0 +1,91 @@
+# Lima configuration for Lambda service
+images:
+- location: "https://cloud-images.ubuntu.com/releases/22.04/release/ubuntu-22.04-server-cloudimg-amd64.img"
+  arch: "x86_64"
+  digest: "sha256:5c8f2c7c3b1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1"
+
+mounts:
+- location: "~/.lambda-functions"
+  writable: true
+- location: "~/.aws"
+  writable: true
+
+provision:
+- mode: system
+  script: |
+    #!/bin/bash
+    set -eux -o pipefail
+    
+    # Update system
+    apt-get update
+    apt-get upgrade -y
+    
+    # Install required packages
+    apt-get install -y \
+      python3-pip \
+      python3-venv \
+      git \
+      curl \
+      wget \
+      unzip \
+      jq \
+      awscli
+    
+    # Create virtual environment
+    python3 -m venv /opt/lambda-venv
+    source /opt/lambda-venv/bin/activate
+    
+    # Install Python packages
+    pip install \
+      fastapi \
+      uvicorn \
+      python-multipart \
+      python-dotenv \
+      boto3 \
+      requests
+    
+    # Create lambda functions directory
+    mkdir -p /opt/lambda-functions
+    chmod 777 /opt/lambda-functions
+    
+    # Create systemd service
+    cat > /etc/systemd/system/lambda.service << EOF
+    [Unit]
+    Description=Lambda Service
+    After=network.target
+    
+    [Service]
+    Type=simple
+    User=root
+    WorkingDirectory=/opt/lambda-functions
+    Environment="PATH=/opt/lambda-venv/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
+    ExecStart=/opt/lambda-venv/bin/uvicorn lambda_service.main:app --host 0.0.0.0 --port 16002
+    Restart=always
+    
+    [Install]
+    WantedBy=multi-user.target
+    EOF
+    
+    # Enable and start service
+    systemctl enable lambda.service
+    systemctl start lambda.service
+
+cpus: 2
+memory: "4GiB"
+disk: "20GiB"
+
+networks:
+- lima: shared
+
+ssh:
+  localPort: 0
+  loadDotSSHPubKeys: true
+
+hostResolver:
+  enabled: true
+
+portForwards:
+- guestPort: 16002
+  hostPort: 16002
+  guestIP: 0.0.0.0
+  hostIP: 0.0.0.0 

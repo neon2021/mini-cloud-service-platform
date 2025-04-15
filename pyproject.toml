@@ -1,0 +1,27 @@
+[tool.poetry]
+name = "mini-cloud-service-platform"
+version = "0.1.0"
+description = "A mini cloud service platform for managing virtual machines and serverless functions"
+authors = ["Your Name <your.email@example.com>"]
+packages = [
+    { include = "src" }
+]
+
+[tool.poetry.dependencies]
+python = "^3.9"
+fastapi = "^0.68.0"
+uvicorn = "^0.15.0"
+pydantic = "^1.8.2"
+python-dotenv = "^0.19.0"
+pyyaml = "^6.0"
+python-multipart = "^0.0.6"
+
+[tool.poetry.group.dev.dependencies]
+pytest = "^6.2.5"
+black = "^21.7b0"
+isort = "^5.9.3"
+flake8 = "^3.9.2"
+
+[build-system]
+requires = ["poetry-core>=1.0.0"]
+build-backend = "poetry.core.masonry.api" 

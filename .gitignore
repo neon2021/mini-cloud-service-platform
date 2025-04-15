@@ -38,3 +38,5 @@ ENV/
 .lambda-functions/
 backend/target
 backend/target/*
+/backend/target/
+/backend/target/*
